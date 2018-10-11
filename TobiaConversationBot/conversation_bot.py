@@ -1,4 +1,5 @@
 from telegram.ext import *
+from telegram import (ReplyKeyboardMarkup, ReplyKeyboardRemove)
 import logging
 
 logger = logging.getLogger(__name__)
@@ -10,11 +11,17 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 # Define states
 CHOICE, NAME_FIRST, NAME_LAST, HOLIDAY, HOLIDAY_SEA, HOLIDAY_MOUNTAIN = range(6)
 
+# Current user name
+name = "Bro"
+name_given = False
 
 def start(bot, update):
-    bot.send_message(chat_id=update.message.chat_id, text="I'm a pretty stupid bot, I can talk with you about holidays"
-                                                          "or we start to know each other a bit better!")
-    return CHOICE
+
+    message = "Since we already know each other, why don't we talk about vacations?" if name_given else "Hey " + name + ", I'm a pretty stupid bot, I can talk with you about holidays or we can start to know each other a bit better!"
+
+    bot.send_message(chat_id=update.message.chat_id, text=message)
+
+    return HOLIDAY if name_given else CHOICE
 
 
 def choice(bot, update):
@@ -37,7 +44,7 @@ def choice(bot, update):
     }
 
     # Choose intent and answer appropriately
-    choice = choose_intent(intents, update.message)
+    choice = choose_intent(intents, update.message.text)
 
     logger.info("Choice was %s, returning state %s" % (choice, new_states[choice]))
 
@@ -46,11 +53,26 @@ def choice(bot, update):
 
 
 def first_name(bot, update):
-    None
+
+    global name
+    name = update.message.text
+
+    bot.send_message(chat_id=update.message.chat_id, text="What about your last name?")
+
+    return NAME_LAST
 
 
 def last_name(bot, update):
-    None
+
+    logger.info("giving last name")
+
+    global name, name_given
+    name = name + " " + update.message.text
+    name_given = True
+
+    bot.send_message(chat_id=update.message.chat_id, text="Well hello " + name + ", nice to meet you, I'm a simple test bot. Let's move on and talk about holidays")
+
+    return HOLIDAY
 
 def holyday(bot, update):
     bot.send_message(chat_id=update.message.chat_id, text="Holydays!")
@@ -59,7 +81,8 @@ def holyday(bot, update):
 def choose_intent(intent_sets, message):
 
     logger.info("Choosing intent")
-    logger.info(intent_sets, message)
+    logger.info(intent_sets)
+    logger.info(message)
 
     counts = []
 
@@ -71,6 +94,14 @@ def choose_intent(intent_sets, message):
 
     # TODO: pretty bad solution, in case of multiple maxs
     return list(intent_sets.keys())[counts.index(max(counts))]
+
+def cancel(bot, update):
+    user = update.message.from_user
+    logger.info("User %s canceled the conversation.", user.first_name)
+    update.message.reply_text('Bye! I hope we can talk again some day.',
+                              reply_markup=ReplyKeyboardRemove())
+
+    return ConversationHandler.END
 
 def error(bot, update, error):
     """Log Errors caused by Updates."""
@@ -89,13 +120,17 @@ def main():
 
             CHOICE: [MessageHandler(Filters.text, choice)],
 
-            NAME_FIRST: [MessageHandler(Filters.photo, first_name)],
+            NAME_FIRST: [MessageHandler(Filters.text, first_name)],
+
+            NAME_LAST: [MessageHandler(Filters.text, last_name)],
 
             HOLIDAY: [MessageHandler(Filters.location, holyday)]
 
         },
 
-        fallbacks=[CommandHandler('cancel', last_name)]
+        fallbacks=[CommandHandler('cancel', cancel)],
+
+        allow_reentry=True
     )
 
     dispatcher.add_handler(conv_handler)
