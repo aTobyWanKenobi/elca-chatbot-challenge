@@ -1,11 +1,12 @@
 from telegram.ext import *
 from telegram import (ReplyKeyboardMarkup, ReplyKeyboardRemove)
-import logging
 
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
-import string 
+import string
+
+import logging
 
 logger = logging.getLogger(__name__)
 
@@ -16,9 +17,17 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 # Define states
 RECOGNIZE_INTENT, RESTAURANT, PHARMACY = range(3)
 
+# Define intents
+intents = {
+        'restaurant': {'eat', 'drink', 'hungry', 'thirsty', 'restaurant', 'bar', 'pub', 'meal', 'lunch', 'dinner', 'breakfast', 'brunch', 'pizzeria', 'fast-food'},
+        'pharmacy': {'pharmacy', 'medicine', 'cream', 'heal', 'sick', 'ill', 'drug', 'pills'}
+        }
+
+# Current intent
+
 def start(bot, update):
 
-    message = "Hello, what do you need to know?"
+    message = "Hello, what do you need to find?"
     bot.send_message(chat_id=update.message.chat_id, text=message)
 
     return RECOGNIZE_INTENT
@@ -26,21 +35,18 @@ def start(bot, update):
 # This is the callback for the state where the bots recognizes the intent
 def recognize_intent(bot, update):
 
-    logger.info("CHOICE state")
-
-    intents = {
-        'restaurant': {},
-        'pharmacy': {}
-    }
+    logger.info("RECOGNIZE_INTENT state")
 
     new_states = {
-        'greet': NAME_FIRST,
-        'holiday': HOLIDAY
+        'restaurant': RESTAURANT,
+        'pharmacy': PHARMACY,
+        'default': RECOGNIZE_INTENT
     }
 
     messages = {
-        'greet': "So you want to know each other a bit better? What's your first name?",
-        'holiday': "I love holidays, let's speak about that! Do you prefer sea or mountain?"
+        'restaurant': "So you want to find a restaurant?",
+        'pharmacy': "So you want to find a pharmacy?",
+        'default': "Sorry I didn't understand. What do you want to find? I can help you with restaurants and pharmacies"
     }
 
     # Choose intent and answer appropriately
@@ -49,11 +55,23 @@ def recognize_intent(bot, update):
     logger.info("Choice was %s, returning state %s" % (choice, new_states[choice]))
 
     bot.send_message(chat_id=update.message.chat_id, text=messages[choice])
+
     return new_states[choice]
+
+def restaurant(bot, update):
+    ask_location()
+
+def pharmacy(bot, update):
+    None
+
+def ask_location(bot, update):
+    bot.send_message(chat_id=update.message.chat_id, text="Can you tell me your location?")
+
+    return
 
 def clean(text) :
 
-    punct =  list(string.punctuation)
+    punct = list(string.punctuation)
     stopw = stopwords.words('english')
 
     tokens = word_tokenize(text)
@@ -65,18 +83,24 @@ def clean(text) :
 
     return lemmatised
 
-
 # This method chooses the intent
 def choose_intent(intent_sets, message):
+
+    clean_mex = clean(message)
 
     counts = []
 
     for k, v in intent_sets.items():
         logger.info(k, v)
-        counts.append(sum([1 for w in v if w in message]))
+        counts.append(sum([1 for w in v if w in clean_mex]))
 
-    # TODO: pretty bad solution, in case of multiple maxs
-    return list(intent_sets.keys())[counts.index(max(counts))]
+    max_count = max(counts)
+
+    if max_count == 0:
+        # Keep listening if no overlap between sets is found
+        return 'default'
+    else:
+        return list(intent_sets.keys())[counts.index(max_count)]
 
 def cancel(bot, update):
     user = update.message.from_user
@@ -102,11 +126,11 @@ def main():
 
         states={
 
-            RECOGNIZE_INTENT: [MessageHandler(Filters.text, choice)],
+            RECOGNIZE_INTENT: [MessageHandler(Filters.text, recognize_intent)],
 
-            RESTAURANT: [MessageHandler(Filters.text, first_name)],
+            RESTAURANT: [MessageHandler(Filters.text, restaurant)],
 
-            PHARMACY: [MessageHandler(Filters.text, last_name)],
+            PHARMACY: [MessageHandler(Filters.text, pharmacy)],
 
         },
 
