@@ -15,7 +15,7 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
                     level=logging.INFO)
 
 # Define states
-RECOGNIZE_INTENT, RESTAURANT, PHARMACY = range(3)
+RECOGNIZE_INTENT, ASK_LOCATION, LOCATION = range(3)
 
 # Define intents
 intents = {
@@ -24,6 +24,8 @@ intents = {
         }
 
 # Current intent
+current_intent = 'default'
+
 
 def start(bot, update):
 
@@ -32,14 +34,15 @@ def start(bot, update):
 
     return RECOGNIZE_INTENT
 
+
 # This is the callback for the state where the bots recognizes the intent
 def recognize_intent(bot, update):
 
     logger.info("RECOGNIZE_INTENT state")
 
     new_states = {
-        'restaurant': RESTAURANT,
-        'pharmacy': PHARMACY,
+        'restaurant': LOCATION,
+        'pharmacy': LOCATION,
         'default': RECOGNIZE_INTENT
     }
 
@@ -51,6 +54,8 @@ def recognize_intent(bot, update):
 
     # Choose intent and answer appropriately
     choice = choose_intent(intents, update.message.text)
+    global current_intent
+    current_intent = choice
 
     logger.info("Choice was %s, returning state %s" % (choice, new_states[choice]))
 
@@ -58,16 +63,26 @@ def recognize_intent(bot, update):
 
     return new_states[choice]
 
-def restaurant(bot, update):
-    ask_location()
-
-def pharmacy(bot, update):
-    None
 
 def ask_location(bot, update):
     bot.send_message(chat_id=update.message.chat_id, text="Can you tell me your location?")
+    return LOCATION
 
-    return
+def wrong_location(bot, update):
+    bot.send_message(chat_id=update.message.chat_id, text="Nono don't tell me, just share your location with me")
+    return LOCATION
+
+def location(bot, update):
+
+    user = update.message.from_user
+    user_location = update.message.location
+    logger.info("Location of %s: %f / %f", user.first_name, user_location.latitude,
+                user_location.longitude)
+    update.message.reply_text('Maybe I can visit you sometime! '
+                              'At last, tell me something about yourself.')
+
+    return None
+
 
 def clean(text) :
 
@@ -82,6 +97,7 @@ def clean(text) :
     lemmatised = [wordnet_lemmatizer.lemmatize(t) for t in filtered_words]
 
     return lemmatised
+
 
 # This method chooses the intent
 def choose_intent(intent_sets, message):
@@ -102,6 +118,7 @@ def choose_intent(intent_sets, message):
     else:
         return list(intent_sets.keys())[counts.index(max_count)]
 
+
 def cancel(bot, update):
     user = update.message.from_user
     logger.info("User %s canceled the conversation.", user.first_name)
@@ -110,9 +127,11 @@ def cancel(bot, update):
 
     return ConversationHandler.END
 
+
 def error(bot, update, error):
     """Log Errors caused by Updates."""
     logger.warning('Update "%s" caused error "%s"', update, error)
+
 
 def main():
     # Create the EventHandler and pass it your bot's token.
@@ -128,9 +147,10 @@ def main():
 
             RECOGNIZE_INTENT: [MessageHandler(Filters.text, recognize_intent)],
 
-            RESTAURANT: [MessageHandler(Filters.text, restaurant)],
+            ASK_LOCATION: [MessageHandler(Filters.text, ask_location)],
 
-            PHARMACY: [MessageHandler(Filters.text, pharmacy)],
+            LOCATION: [MessageHandler(Filters.location, location),
+                       MessageHandler(Filters.text, wrong_location)]
 
         },
 
