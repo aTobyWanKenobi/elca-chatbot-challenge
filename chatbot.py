@@ -1,6 +1,9 @@
 from telegram.ext import *
 from telegram import (ReplyKeyboardMarkup, ReplyKeyboardRemove)
 
+from yelp.client import Client as YelpClient
+from yelpapi import YelpAPI
+
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
@@ -15,7 +18,7 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
                     level=logging.INFO)
 
 # Define states
-RECOGNIZE_INTENT, ASK_LOCATION, LOCATION = range(3)
+RECOGNIZE_INTENT, LOCATION = range(2)
 
 # Define intents
 intents = {
@@ -47,8 +50,8 @@ def recognize_intent(bot, update):
     }
 
     messages = {
-        'restaurant': "So you want to find a restaurant?",
-        'pharmacy': "So you want to find a pharmacy?",
+        'restaurant': "So you want to find a restaurant? Can you tell me your location?",
+        'pharmacy': "So you want to find a pharmacy? Can you tell me your location?",
         'default': "Sorry I didn't understand. What do you want to find? I can help you with restaurants and pharmacies"
     }
 
@@ -64,26 +67,49 @@ def recognize_intent(bot, update):
     return new_states[choice]
 
 
-def ask_location(bot, update):
-    bot.send_message(chat_id=update.message.chat_id, text="Can you tell me your location?")
+def wrong_location(bot, update):
+    bot.send_message(chat_id=update.message.chat_id, text="No no don't tell me, just share your location with me")
     return LOCATION
 
-def wrong_location(bot, update):
-    bot.send_message(chat_id=update.message.chat_id, text="Nono don't tell me, just share your location with me")
-    return LOCATION
 
 def location(bot, update):
 
     user = update.message.from_user
     user_location = update.message.location
+
     logger.info("Location of %s: %f / %f", user.first_name, user_location.latitude,
                 user_location.longitude)
-    update.message.reply_text('Maybe I can visit you sometime! '
-                              'At last, tell me something about yourself.')
 
-    return None
+    yelp_cat = {
+        'restaurant': 'restaurants',
+        'pharmacy': 'pharmacy'
+    }
+
+    API_KEY = "NsYR8sYATuMoAKglwFzs1o11Bok5ilUENbJtJocUdXpxBvTSkJga79JoQ_DNTdGUf2sLFBDs09vynSLYQyneVUGF6Ut5kI3d0RPsLK_Fd5Yfc1D8GuKE9wKWiF_AW3Yx"
+    yelp_api = YelpAPI(API_KEY)
+    response = yelp_api.search_query(categories=yelp_cat[current_intent], longitude=user_location.longitude, latitude=user_location.latitude, limit=3)
+
+    bot.send_message(chat_id=update.message.chat_id, text=response_from_API(response))
+    bot.send_message(chat_id=update.message.chat_id, text="Can I help with something else?")
+
+    return RECOGNIZE_INTENT
+
+# Use
+def response_from_API(response):
+
+    business_list = response['businesses']
+    names = [(b["name"], b["location"]["address1"], b["location"]["city"]) for b in business_list]
+
+    res = "Here are the three best options I could find : \n\n"
+    for n in names:
+        res += n[0] + " - " + n[1] +  " - " + n[2] + "\n\n"
+
+    logger.info(res)
+
+    return res
 
 
+# Process user input message and clean it up
 def clean(text) :
 
     punct = list(string.punctuation)
@@ -99,7 +125,7 @@ def clean(text) :
     return lemmatised
 
 
-# This method chooses the intent
+# This method chooses the intent (scoring function)
 def choose_intent(intent_sets, message):
 
     clean_mex = clean(message)
@@ -116,6 +142,7 @@ def choose_intent(intent_sets, message):
         # Keep listening if no overlap between sets is found
         return 'default'
     else:
+        # FIXME: if two intents have same score, first in intent list is choosed
         return list(intent_sets.keys())[counts.index(max_count)]
 
 
@@ -147,11 +174,8 @@ def main():
 
             RECOGNIZE_INTENT: [MessageHandler(Filters.text, recognize_intent)],
 
-            ASK_LOCATION: [MessageHandler(Filters.text, ask_location)],
-
             LOCATION: [MessageHandler(Filters.location, location),
                        MessageHandler(Filters.text, wrong_location)]
-
         },
 
         fallbacks=[CommandHandler('cancel', cancel)],
