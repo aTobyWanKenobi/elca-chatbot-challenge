@@ -2,6 +2,11 @@ from telegram.ext import *
 from telegram import (ReplyKeyboardMarkup, ReplyKeyboardRemove)
 import logging
 
+from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
+import string 
+
 logger = logging.getLogger(__name__)
 
 # Enable logging
@@ -45,6 +50,21 @@ def recognize_intent(bot, update):
 
     bot.send_message(chat_id=update.message.chat_id, text=messages[choice])
     return new_states[choice]
+
+def clean(text) :
+
+    punct =  list(string.punctuation)
+    stopw = stopwords.words('english')
+
+    tokens = word_tokenize(text)
+    filtered_words = [w.lower() for w in tokens if w.lower() not in stopw]
+    filtered_words = [w for w in filtered_words if w not in punct]
+
+    wordnet_lemmatizer = WordNetLemmatizer()
+    lemmatised = [wordnet_lemmatizer.lemmatize(t) for t in filtered_words]
+
+    return lemmatised
+
 
 # This method chooses the intent
 def choose_intent(intent_sets, message):
