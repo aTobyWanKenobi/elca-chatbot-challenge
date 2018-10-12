@@ -22,7 +22,7 @@ RECOGNIZE_INTENT, LOCATION = range(2)
 
 # Define intents
 intents = {
-        'restaurant': {'eat', 'drink', 'hungry', 'thirsty', 'restaurant', 'bar', 'pub', 'meal', 'lunch', 'dinner', 'breakfast', 'brunch', 'pizzeria', 'fast-food'},
+        'restaurant': {'eat', 'drink', 'hungry', 'thirsty', 'restaurant', 'bar', 'pub', 'meal', 'lunch', 'dinner', 'breakfast', 'brunch', 'pizzeria', 'food', 'fast-food'},
         'pharmacy': {'pharmacy', 'medicine', 'cream', 'heal', 'sick', 'ill', 'drug', 'pills'}
         }
 
@@ -50,9 +50,9 @@ def recognize_intent(bot, update):
     }
 
     messages = {
-        'restaurant': "So you want to find a restaurant? Can you tell me your location?",
-        'pharmacy': "So you want to find a pharmacy? Can you tell me your location?",
-        'default': "Sorry I didn't understand. What do you want to find? I can help you with restaurants and pharmacies"
+        'restaurant': "Excellent, so you would like to find a restaurant? Could you tell me your location?",
+        'pharmacy': "Excellent, so you would like to find a pharmacy? Could you tell me your location?",
+        'default': "Sorry, I didn't understand that. What would you like to find? I can help you with restaurants and pharmacies, for example."
     }
 
     # Choose intent and answer appropriately
