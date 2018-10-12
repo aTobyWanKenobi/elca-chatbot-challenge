@@ -32,8 +32,7 @@ current_intent = 'default'
 
 def start(bot, update):
 
-    message = "Hello, I can help you find places around some location. What are you looking for?\n" \
-              "If you want to stop talking to me, just type /cancel ;)"
+    message = "Hello, I can help you find places around you. What are you looking for?"
     bot.send_message(chat_id=update.message.chat_id, text=message)
 
     return RECOGNIZE_INTENT
@@ -51,9 +50,9 @@ def recognize_intent(bot, update):
     }
 
     messages = {
-        'restaurant': "Excellent, so you would like to find a restaurant? Could you tell me your location?",
-        'pharmacy': "Excellent, so you would like to find a pharmacy? Could you tell me your location?",
-        'default': "Sorry, I didn't understand that. What would you like to find? I can help you with restaurants and pharmacies, for example."
+        'restaurant': "So you want to find a restaurant? Can you tell me your location?",
+        'pharmacy': "So you want to find a pharmacy? Can you tell me your location?",
+        'default': "Sorry I didn't understand. What do you want to find? I can help you with restaurants and pharmacies"
     }
 
     # Choose intent and answer appropriately
@@ -172,7 +171,8 @@ def main():
 
         states={
 
-            RECOGNIZE_INTENT: [MessageHandler(Filters.text, recognize_intent)],
+            RECOGNIZE_INTENT: [MessageHandler()
+                MessageHandler(Filters.text, recognize_intent)],
 
             LOCATION: [MessageHandler(Filters.location, location),
                        MessageHandler(Filters.text, wrong_location)]
